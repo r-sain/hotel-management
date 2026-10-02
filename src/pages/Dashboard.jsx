@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../lib/api.js';
+import { api, photoUrl } from '../lib/api.js';
 import { paiseToINR, paiseToINRShort } from '../lib/money.js';
 import { formatDateTime, duration } from '../lib/datetime.js';
 import StatusBadge from '../components/StatusBadge.jsx';
@@ -132,7 +132,7 @@ export default function Dashboard() {
                     <Link to={`/guests/${g.id}`} className="guest-link">
                       {g.face_photo ? (
                         <img
-                          src={`/uploads/${g.face_photo}`}
+                          src={photoUrl(g, 'face')}
                           alt=""
                           className="avatar"
                         />
