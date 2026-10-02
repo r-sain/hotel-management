@@ -19,21 +19,32 @@ export default function Dashboard() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError('');
-      setGuests(await api.listGuests({ status: filter, search }));
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [filter, search]);
+  const load = useCallback(
+    async ({ showLoading = true } = {}) => {
+      try {
+        if (showLoading) setLoading(true);
+        setError('');
+        setGuests(await api.listGuests({ status: filter, search }));
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        if (showLoading) setLoading(false);
+      }
+    },
+    [filter, search],
+  );
 
   useEffect(() => {
     const t = setTimeout(load, 250); // debounce search typing
     return () => clearTimeout(t);
+  }, [load]);
+
+  useEffect(() => {
+    const interval = window.setInterval(
+      () => load({ showLoading: false }),
+      15000,
+    );
+    return () => window.clearInterval(interval);
   }, [load]);
 
   const stats = useMemo(() => {

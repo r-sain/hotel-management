@@ -2,13 +2,29 @@ import initialGuests from '../data/guests.json';
 
 const STORAGE_KEY = 'shalimar-demo-guests-v1';
 
+function statusForCheckout(checkoutAt) {
+  if (!checkoutAt) return 'checked-in';
+  const checkoutTime = new Date(checkoutAt).getTime();
+  return Number.isFinite(checkoutTime) && checkoutTime <= Date.now()
+    ? 'checked-out'
+    : 'checked-in';
+}
+
 function readGuests() {
   const saved = window.localStorage.getItem(STORAGE_KEY);
-  if (saved !== null) return JSON.parse(saved);
-
-  const guests = JSON.parse(JSON.stringify(initialGuests));
-  writeGuests(guests);
-  return guests;
+  const guests =
+    saved === null
+      ? JSON.parse(JSON.stringify(initialGuests))
+      : JSON.parse(saved);
+  let statusChanged = false;
+  const currentGuests = guests.map(guest => {
+    const status = statusForCheckout(guest.checkout_at);
+    if (guest.status === status) return guest;
+    statusChanged = true;
+    return { ...guest, status };
+  });
+  if (saved === null || statusChanged) writeGuests(currentGuests);
+  return currentGuests;
 }
 
 function writeGuests(guests) {
@@ -167,13 +183,15 @@ export const api = {
   async createGuest(body) {
     const guests = readGuests();
     const fields = parseGuest(body);
-    if (!fields.checkout_at) assertRoomAvailable(guests, fields.room_no);
+    if (statusForCheckout(fields.checkout_at) === 'checked-in') {
+      assertRoomAvailable(guests, fields.room_no);
+    }
     const id = guests.reduce((max, guest) => Math.max(max, guest.id), 0) + 1;
     const timestamp = new Date().toISOString();
     const guest = {
       ...fields,
       id,
-      status: fields.checkout_at ? 'checked-out' : 'checked-in',
+      status: statusForCheckout(fields.checkout_at),
       face_photo: null,
       id_photo: null,
       created_at: timestamp,
@@ -187,12 +205,13 @@ export const api = {
     const guests = readGuests();
     const existing = findGuest(guests, id);
     const fields = parseGuest(body);
-    if (!fields.checkout_at)
+    if (statusForCheckout(fields.checkout_at) === 'checked-in') {
       assertRoomAvailable(guests, fields.room_no, existing.id);
+    }
     const updated = {
       ...existing,
       ...fields,
-      status: fields.checkout_at ? 'checked-out' : 'checked-in',
+      status: statusForCheckout(fields.checkout_at),
       updated_at: new Date().toISOString(),
     };
     guests[guests.indexOf(existing)] = updated;
@@ -202,10 +221,11 @@ export const api = {
   async checkOut(id, checkoutAt) {
     const guests = readGuests();
     const guest = findGuest(guests, id);
+    const scheduledCheckout = checkoutAt || localNow();
     const updated = {
       ...guest,
-      checkout_at: checkoutAt || localNow(),
-      status: 'checked-out',
+      checkout_at: scheduledCheckout,
+      status: statusForCheckout(scheduledCheckout),
       updated_at: new Date().toISOString(),
     };
     guests[guests.indexOf(guest)] = updated;
