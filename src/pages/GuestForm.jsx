@@ -20,6 +20,7 @@ const emptyForm = () => ({
   gst_rate: '5',
   bill_due_manual: '',
   bill_due_note: '',
+  bill_status: 'due',
   facePhoto: null, // unsaved data URL
   idPhoto: null,
 });
@@ -47,6 +48,7 @@ export default function GuestForm() {
           const g = await api.getGuest(id);
           if (cancelled) return;
           setExisting(g);
+          const gstRate = Number(g.gst_rate) || 0;
           setForm({
             name: g.name,
             room_no: g.room_no,
@@ -56,12 +58,13 @@ export default function GuestForm() {
             rent_paid: paiseToRupeeString(g.rent_paid),
             last_bill_amount: paiseToRupeeString(g.last_bill_amount),
             gst_included: Boolean(g.gst_included),
-            gst_rate: String(g.gst_rate),
+            gst_rate: String(gstRate || 5),
             bill_due_manual:
               g.bill_due_manual != null
                 ? paiseToRupeeString(g.bill_due_manual)
                 : '',
             bill_due_note: g.bill_due_note || '',
+            bill_status: g.bill_status === 'paid' ? 'paid' : 'due',
             facePhoto: null,
             idPhoto: null,
           });
@@ -85,42 +88,51 @@ export default function GuestForm() {
     );
   }, [form.room_no, occupiedRooms, id]);
 
-  const breakdown = useMemo(
-    () =>
-      computeBreakdown({
-        amount: rupeesToPaise(form.last_bill_amount) ?? 0,
-        gstIncluded: form.gst_included,
-        gstRate: Number(form.gst_rate) || 0,
-        rentPaid: rupeesToPaise(form.rent_paid) ?? 0,
-        manualDue:
-          form.bill_due_manual.trim() === ''
-            ? null
-            : rupeesToPaise(form.bill_due_manual),
-      }),
-    [
-      form.last_bill_amount,
-      form.gst_included,
-      form.gst_rate,
-      form.rent_paid,
-      form.bill_due_manual,
-    ],
-  );
+  const breakdown = useMemo(() => {
+    const enteredAmount = rupeesToPaise(form.last_bill_amount) ?? 0;
+    const totalAmount = Math.round(
+      enteredAmount * (form.gst_included ? 1.05 : 1),
+    );
+
+    return computeBreakdown({
+      amount: enteredAmount,
+      gstIncluded: form.gst_included,
+      gstRate: form.gst_included ? 5 : 0,
+      rentPaid:
+        form.bill_status === 'paid'
+          ? totalAmount
+          : (rupeesToPaise(form.rent_paid) ?? 0),
+      manualDue:
+        form.bill_due_manual.trim() === ''
+          ? null
+          : rupeesToPaise(form.bill_due_manual),
+      billStatus: form.bill_status,
+    });
+  }, [
+    form.last_bill_amount,
+    form.gst_included,
+    form.rent_paid,
+    form.bill_due_manual,
+    form.bill_status,
+  ]);
 
   const save = async e => {
     e.preventDefault();
     setError('');
     setSaving(true);
     try {
+      const enteredAmount = rupeesToPaise(form.last_bill_amount) ?? 0;
       const body = {
         name: form.name.trim(),
         room_no: form.room_no.trim(),
         no_of_persons: Number(form.no_of_persons),
         checkin_at: form.checkin_at,
         checkout_at: form.checkout_at || null,
-        rent_paid: (rupeesToPaise(form.rent_paid) ?? 0) / 100,
-        last_bill_amount: (rupeesToPaise(form.last_bill_amount) ?? 0) / 100,
+        rent_paid: breakdown.paid / 100,
+        last_bill_amount: enteredAmount / 100,
         gst_included: form.gst_included,
-        gst_rate: Number(form.gst_rate) || 0,
+        gst_rate: form.gst_included ? 5 : 0,
+        bill_status: form.bill_status,
         bill_due_manual:
           form.bill_due_manual.trim() === ''
             ? null
@@ -221,18 +233,6 @@ export default function GuestForm() {
           <h2>Bill &amp; GST</h2>
           <div className="form-grid">
             <label className="field">
-              <span className="field-label">Bill paid (₹)</span>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.rent_paid}
-                onChange={set('rent_paid')}
-                placeholder="0"
-              />
-            </label>
-            <label className="field">
               <span className="field-label">Bill amount (₹)</span>
               <input
                 className="input"
@@ -241,7 +241,22 @@ export default function GuestForm() {
                 step="0.01"
                 value={form.last_bill_amount}
                 onChange={set('last_bill_amount')}
+                onWheel={e => e.target.blur()}
                 placeholder="0"
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">Bill due amount (₹)</span>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.bill_due_manual}
+                onChange={set('bill_due_manual')}
+                onWheel={e => e.target.blur()}
+                placeholder="Enter due amount"
+                disabled={form.bill_status !== 'due'}
               />
             </label>
             <div className="field">
@@ -256,7 +271,7 @@ export default function GuestForm() {
                     }
                   />
                   <span>
-                    Entered <strong>with GST</strong>
+                    <strong>With GST</strong>
                   </span>
                 </label>
                 <label className="toggle">
@@ -273,18 +288,43 @@ export default function GuestForm() {
                 </label>
               </div>
             </div>
-            <label className="field">
-              <span className="field-label">GST rate (%)</span>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                max="50"
-                step="0.5"
-                value={form.gst_rate}
-                onChange={set('gst_rate')}
-              />
-            </label>
+
+            <div className="field">
+              <span className="field-label">Bill status</span>
+              <div className="toggle-row">
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={form.bill_status === 'due'}
+                    onChange={e =>
+                      setForm(f => ({
+                        ...f,
+                        bill_status: e.target.checked ? 'due' : 'paid',
+                      }))
+                    }
+                  />
+                  <span>
+                    <strong>Due</strong>
+                  </span>
+                </label>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={form.bill_status === 'paid'}
+                    onChange={e =>
+                      setForm(f => ({
+                        ...f,
+                        bill_status: e.target.checked ? 'paid' : 'due',
+                      }))
+                    }
+                  />
+                  <span>
+                    <strong>Paid</strong>
+                  </span>
+                </label>
+              </div>
+            </div>
+
           </div>
 
           <div className="breakdown-box">
@@ -292,33 +332,20 @@ export default function GuestForm() {
               bill={{
                 amount: rupeesToPaise(form.last_bill_amount) ?? 0,
                 gstIncluded: form.gst_included,
-                gstRate: Number(form.gst_rate) || 0,
+                gstRate: form.gst_included ? 5 : 0,
                 rentPaid: rupeesToPaise(form.rent_paid) ?? 0,
                 manualDue:
                   form.bill_due_manual.trim() === ''
                     ? null
                     : rupeesToPaise(form.bill_due_manual),
+                billStatus: form.bill_status,
               }}
               showDue
             />
           </div>
 
           <div className="form-grid">
-            <label className="field">
-              <span className="field-label">
-                Manual bill due (₹) — optional override
-              </span>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.bill_due_manual}
-                onChange={set('bill_due_manual')}
-                placeholder={`Auto: ${breakdown.due >= 0 ? '' : ''}${(breakdown.autoDue / 100).toLocaleString('en-IN')}`}
-              />
-            </label>
-            <label className="field">
+            <label className="field field-span-2">
               <span className="field-label">Note</span>
               <input
                 className="input"
@@ -330,31 +357,28 @@ export default function GuestForm() {
           </div>
         </section>
 
-        {/* Photos */}
+        {/* Documents */}
         <section className="form-section">
-          <h2>Photos</h2>
+          <h2>Documents</h2>
           <div className="photo-grid">
             <PhotoField
-              label="Customer photo (webcam)"
-              allowCamera
-              allowUpload={false}
+              label="Customer photo"
+              allowCamera={false}
+              allowUpload
               value={form.facePhoto}
               savedUrl={existing ? photoUrl(existing, 'face') : null}
               onChange={v => setForm(f => ({ ...f, facePhoto: v }))}
             />
             <PhotoField
-              label="ID proof photo"
-              allowCamera
+              label="ID proof document"
+              allowCamera={false}
               allowUpload
               value={form.idPhoto}
               savedUrl={existing ? photoUrl(existing, 'id') : null}
               onChange={v => setForm(f => ({ ...f, idPhoto: v }))}
             />
           </div>
-          <p className="muted small">
-            The camera needs a secure context — it works on{' '}
-            <code>localhost</code> or over HTTPS.
-          </p>
+          <p className="muted small">Upload PDF documents only.</p>
         </section>
 
         <div className="form-footer">

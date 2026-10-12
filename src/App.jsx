@@ -1,19 +1,27 @@
-import { Link, Navigate, Route, Routes } from 'react-router-dom'
-import Dashboard from './pages/Dashboard.jsx'
-import GuestForm from './pages/GuestForm.jsx'
-import GuestDetail from './pages/GuestDetail.jsx'
-import BillInvoice from './pages/BillInvoice.jsx'
-import './App.css'
+import { Link, Navigate, Route, Routes } from 'react-router-dom';
+import Dashboard from './pages/Dashboard.jsx';
+import GuestForm from './pages/GuestForm.jsx';
+import GuestDetail from './pages/GuestDetail.jsx';
+import BillInvoice from './pages/BillInvoice.jsx';
+import './App.css';
 
 export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <Link to="/" className="brand">
-          <span className="brand-mark" aria-hidden="true">S</span>
-          <span className="brand-text">
-            <strong>Shalimar</strong>
-            <small>Hotel Management</small>
+        <Link
+          to="/"
+          className="brand brand-stack"
+          aria-label="Shalimar Lodge home"
+        >
+          <img
+            src="/logopng.png"
+            alt="Shalimar Lodge logo"
+            className="brand-logo"
+          />
+          <span className="brand-text-wrap">
+            <span className="brand-text brand-text-main">Shalimar</span>
+            <span className="brand-text brand-text-sub">Hotel Management</span>
           </span>
         </Link>
       </header>
@@ -28,5 +36,5 @@ export default function App() {
         </Routes>
       </main>
     </div>
-  )
+  );
 }

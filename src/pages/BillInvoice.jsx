@@ -22,6 +22,7 @@ export default function BillInvoice() {
     gst_rate: '5',
     bill_due_manual: '',
     bill_due_note: '',
+    bill_status: 'due',
   });
 
   useEffect(() => {
@@ -31,14 +32,18 @@ export default function BillInvoice() {
         const g = await api.getGuest(id);
         if (cancelled) return;
         setGuest(g);
+        const gstRate = Number(g.gst_rate) || 0;
         setForm({
           rent_paid: paiseToRupeeString(g.rent_paid),
           last_bill_amount: paiseToRupeeString(g.last_bill_amount),
           gst_included: Boolean(g.gst_included),
-          gst_rate: String(g.gst_rate),
+          gst_rate: String(gstRate || 5),
           bill_due_manual:
-            g.bill_due_manual != null ? paiseToRupeeString(g.bill_due_manual) : '',
+            g.bill_due_manual != null
+              ? paiseToRupeeString(g.bill_due_manual)
+              : '',
           bill_due_note: g.bill_due_note || '',
+          bill_status: g.bill_status === 'paid' ? 'paid' : 'due',
         });
       } catch (e) {
         if (!cancelled) {
@@ -52,31 +57,39 @@ export default function BillInvoice() {
     };
   }, [id]);
 
-  const breakdown = useMemo(
-    () =>
-      computeBreakdown({
-        amount: rupeesToPaise(form.last_bill_amount) ?? 0,
-        gstIncluded: form.gst_included,
-        gstRate: Number(form.gst_rate) || 0,
-        rentPaid: rupeesToPaise(form.rent_paid) ?? 0,
-        manualDue:
-          form.bill_due_manual.trim() === ''
-            ? null
-            : rupeesToPaise(form.bill_due_manual),
-      }),
-    [form],
-  );
+  const breakdown = useMemo(() => {
+    const enteredAmount = rupeesToPaise(form.last_bill_amount) ?? 0;
+    const totalAmount = Math.round(
+      enteredAmount * (form.gst_included ? 1.05 : 1),
+    );
 
-  const set = (key) => (e) =>
-    setForm((f) => ({ ...f, [key]: e.target.value }));
+    return computeBreakdown({
+      amount: enteredAmount,
+      gstIncluded: form.gst_included,
+      gstRate: form.gst_included ? 5 : 0,
+      rentPaid:
+        form.bill_status === 'paid'
+          ? totalAmount
+          : (rupeesToPaise(form.rent_paid) ?? 0),
+      manualDue:
+        form.bill_due_manual.trim() === ''
+          ? null
+          : rupeesToPaise(form.bill_due_manual),
+      billStatus: form.bill_status,
+    });
+  }, [form]);
 
-  const save = async (e) => {
+  const set = key => e => setForm(f => ({ ...f, [key]: e.target.value }));
+
+  const save = async e => {
     e.preventDefault();
     if (!guest) return;
     setError('');
     setSaving(true);
     setSaved(false);
     try {
+      const enteredAmount = rupeesToPaise(form.last_bill_amount) ?? 0;
+
       // Send the full guest body (PUT requires the identity fields), with the
       // edited bill values. Money is sent in rupees; the API converts to paise.
       const body = {
@@ -85,10 +98,11 @@ export default function BillInvoice() {
         no_of_persons: guest.no_of_persons,
         checkin_at: guest.checkin_at,
         checkout_at: guest.checkout_at,
-        rent_paid: (rupeesToPaise(form.rent_paid) ?? 0) / 100,
-        last_bill_amount: (rupeesToPaise(form.last_bill_amount) ?? 0) / 100,
+        rent_paid: breakdown.paid / 100,
+        last_bill_amount: enteredAmount / 100,
         gst_included: form.gst_included,
-        gst_rate: Number(form.gst_rate) || 0,
+        gst_rate: form.gst_included ? 5 : 0,
+        bill_status: form.bill_status,
         bill_due_manual:
           form.bill_due_manual.trim() === ''
             ? null
@@ -136,16 +150,18 @@ export default function BillInvoice() {
           <Link to={`/guests/${guest.id}`} className="btn btn-ghost">
             ← Back
           </Link>
-          <button type="button" className="btn btn-primary" onClick={() => window.print()}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => window.print()}
+          >
             Print / Save as PDF
           </button>
         </div>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
-      {saved && (
-        <div className="alert bill-saved">Bill saved.</div>
-      )}
+      {saved && <div className="alert bill-saved">Bill saved.</div>}
 
       <div className="bill-layout">
         {/* Editor */}
@@ -182,19 +198,22 @@ export default function BillInvoice() {
                   step="0.01"
                   value={form.last_bill_amount}
                   onChange={set('last_bill_amount')}
+                  onWheel={e => e.target.blur()}
                   placeholder="0"
                 />
               </label>
               <label className="field">
-                <span className="field-label">Bill paid (₹)</span>
+                <span className="field-label">Bill due amount (₹)</span>
                 <input
                   className="input"
                   type="number"
                   min="0"
                   step="0.01"
-                  value={form.rent_paid}
-                  onChange={set('rent_paid')}
-                  placeholder="0"
+                  value={form.bill_due_manual}
+                  onChange={set('bill_due_manual')}
+                  onWheel={e => e.target.blur()}
+                  placeholder="Enter due amount"
+                  disabled={form.bill_status !== 'due'}
                 />
               </label>
               <div className="field">
@@ -204,8 +223,8 @@ export default function BillInvoice() {
                     <input
                       type="checkbox"
                       checked={form.gst_included}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, gst_included: e.target.checked }))
+                      onChange={e =>
+                        setForm(f => ({ ...f, gst_included: e.target.checked }))
                       }
                     />
                     <span>
@@ -216,8 +235,11 @@ export default function BillInvoice() {
                     <input
                       type="checkbox"
                       checked={!form.gst_included}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, gst_included: !e.target.checked }))
+                      onChange={e =>
+                        setForm(f => ({
+                          ...f,
+                          gst_included: !e.target.checked,
+                        }))
                       }
                     />
                     <span>
@@ -226,33 +248,44 @@ export default function BillInvoice() {
                   </label>
                 </div>
               </div>
-              <label className="field">
-                <span className="field-label">GST rate (%)</span>
-                <input
-                  className="input"
-                  type="number"
-                  min="0"
-                  max="50"
-                  step="0.5"
-                  value={form.gst_rate}
-                  onChange={set('gst_rate')}
-                />
-              </label>
-              <label className="field">
-                <span className="field-label">
-                  Manual bill due (₹) — optional override
-                </span>
-                <input
-                  className="input"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.bill_due_manual}
-                  onChange={set('bill_due_manual')}
-                  placeholder={`Auto: ${(breakdown.autoDue / 100).toLocaleString('en-IN')}`}
-                />
-              </label>
-              <label className="field">
+
+              <div className="field">
+                <span className="field-label">Bill status</span>
+                <div className="toggle-row">
+                  <label className="toggle">
+                    <input
+                      type="checkbox"
+                      checked={form.bill_status === 'due'}
+                      onChange={e =>
+                        setForm(f => ({
+                          ...f,
+                          bill_status: e.target.checked ? 'due' : 'paid',
+                        }))
+                      }
+                    />
+                    <span>
+                      <strong>Due</strong>
+                    </span>
+                  </label>
+                  <label className="toggle">
+                    <input
+                      type="checkbox"
+                      checked={form.bill_status === 'paid'}
+                      onChange={e =>
+                        setForm(f => ({
+                          ...f,
+                          bill_status: e.target.checked ? 'paid' : 'due',
+                        }))
+                      }
+                    />
+                    <span>
+                      <strong>Paid</strong>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <label className="field field-span-2">
                 <span className="field-label">Note</span>
                 <input
                   className="input"
@@ -272,16 +305,18 @@ export default function BillInvoice() {
         </form>
 
         {/* Printable invoice */}
-        <section id="bill-invoice" className="bill-invoice" aria-label="Invoice">
+        <section
+          id="bill-invoice"
+          className="bill-invoice"
+          aria-label="Invoice"
+        >
           <div className="invoice-head">
             <div className="invoice-brand">
-              <div className="invoice-brand-mark" aria-hidden="true">
-                S
-              </div>
-              <div className="invoice-brand-text">
-                <strong>Shalimar</strong>
-                <small>Hotel Management</small>
-              </div>
+              <img
+                src="/logo.svg"
+                alt="Shalimar Lodge logo"
+                className="invoice-brand-logo"
+              />
             </div>
             <div className="invoice-doc">
               <span className="invoice-doc-title">Bill / Tax Invoice</span>
@@ -303,7 +338,10 @@ export default function BillInvoice() {
               <div className="invoice-party-meta">
                 <span>Room {guest.room_no}</span>
                 <span>·</span>
-                <span>{guest.no_of_persons} {guest.no_of_persons === 1 ? 'person' : 'persons'}</span>
+                <span>
+                  {guest.no_of_persons}{' '}
+                  {guest.no_of_persons === 1 ? 'person' : 'persons'}
+                </span>
               </div>
             </div>
             <dl className="invoice-stay">
@@ -327,12 +365,22 @@ export default function BillInvoice() {
             </dl>
           </div>
 
-          {face && (
-            <div className="invoice-photo">
-              <img src={face} alt={`Customer photo of ${guest.name}`} />
-              <span>Customer</span>
-            </div>
-          )}
+          {face &&
+            (face.startsWith('data:application/pdf') ? (
+              <a
+                href={face}
+                target="_blank"
+                rel="noreferrer"
+                className="invoice-photo invoice-photo-file"
+              >
+                Open customer document
+              </a>
+            ) : (
+              <div className="invoice-photo">
+                <img src={face} alt={`Customer photo of ${guest.name}`} />
+                <span>Customer</span>
+              </div>
+            ))}
 
           <table className="invoice-lines">
             <tbody>
@@ -340,17 +388,21 @@ export default function BillInvoice() {
                 <td>Base amount</td>
                 <td>{paiseToINR(breakdown.base)}</td>
               </tr>
-              <tr>
-                <td>GST @ {Number(form.gst_rate) || 0}%</td>
-                <td>{paiseToINR(breakdown.gst)}</td>
+              <tr className="invoice-tax-row">
+                <td>SGST @ {(form.gst_included ? 5 : 0) / 2}%</td>
+                <td>{paiseToINR(breakdown.sgst)}</td>
+              </tr>
+              <tr className="invoice-tax-row">
+                <td>CGST @ {(form.gst_included ? 5 : 0) / 2}%</td>
+                <td>{paiseToINR(breakdown.cgst)}</td>
               </tr>
               <tr>
                 <td>Bill total</td>
                 <td>{paiseToINR(breakdown.total)}</td>
               </tr>
               <tr>
-                <td>Amount paid</td>
-                <td>{paiseToINR(rupeesToPaise(form.rent_paid) ?? 0)}</td>
+                <td>Balance due</td>
+                <td>{paiseToINR(Math.max(breakdown.due, 0))}</td>
               </tr>
             </tbody>
           </table>
@@ -390,9 +442,7 @@ export default function BillInvoice() {
             <div className="invoice-sign">
               <span>Authorised signature</span>
             </div>
-            <div className="invoice-thanks">
-              Thank you for your stay.
-            </div>
+            <div className="invoice-thanks">Thank you for your stay.</div>
           </div>
         </section>
       </div>

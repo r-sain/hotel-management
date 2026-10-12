@@ -51,16 +51,29 @@ function withBill(guest) {
   const base = guest.gst_included
     ? Math.round(total / (1 + rate / 100))
     : guest.last_bill_amount;
+  const billStatus = guest.bill_status === 'paid' ? 'paid' : 'due';
+  const hasManualDue = guest.bill_due_manual !== null;
+  const billDue =
+    billStatus === 'paid'
+      ? 0
+      : hasManualDue
+        ? Math.min(total, Math.max(0, guest.bill_due_manual))
+        : total;
+  const rentPaid = total - billDue;
   return {
     ...guest,
+    bill_status: billStatus,
+    rent_paid: rentPaid,
     base_amount: base,
     gst_amount: total - base,
     bill_total: total,
-    bill_due:
-      guest.bill_due_manual !== null
-        ? guest.bill_due_manual
-        : total - guest.rent_paid,
-    bill_due_source: guest.bill_due_manual !== null ? 'manual' : 'auto',
+    bill_due: billDue,
+    bill_due_source:
+      billStatus === 'paid'
+        ? 'paid'
+        : guest.bill_due_manual !== null
+          ? 'manual'
+          : 'auto',
   };
 }
 
@@ -88,6 +101,8 @@ function parseGuest(body) {
   const no_of_persons = Number(body.no_of_persons);
   const checkin_at = String(body.checkin_at || '').trim();
   const gst_rate = Number(body.gst_rate ?? 5);
+  const bill_status =
+    String(body.bill_status || 'due').toLowerCase() === 'paid' ? 'paid' : 'due';
 
   if (!name) throw apiError('Name is required');
   if (!room_no) throw apiError('Room no. is required');
@@ -115,6 +130,7 @@ function parseGuest(body) {
     last_bill_amount: toPaise(body.last_bill_amount, 'Bill amount'),
     gst_included: body.gst_included ? 1 : 0,
     gst_rate,
+    bill_status,
     bill_due_manual: toPaise(body.bill_due_manual, 'Manual bill due', {
       allowNull: true,
     }),
@@ -257,9 +273,12 @@ export const api = {
       throw apiError('Photo kind must be "face" or "id"');
     if (
       typeof dataUrl !== 'string' ||
-      !/^data:image\/(jpeg|jpg|png);base64,/.test(dataUrl)
+      !(
+        /^data:image\/(jpeg|jpg|png);base64,/.test(dataUrl) ||
+        /^data:application\/pdf;base64,/.test(dataUrl)
+      )
     ) {
-      throw apiError('Expected a base64 JPEG/PNG data URL in "dataUrl"');
+      throw apiError('Expected an image or PDF data URL in "dataUrl"');
     }
     const guests = readGuests();
     const guest = findGuest(guests, id);

@@ -137,54 +137,56 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {guests.map(g => (
-                <tr key={g.id}>
-                  <td>
-                    <Link to={`/guests/${g.id}`} className="guest-link">
-                      {g.face_photo ? (
-                        <img
-                          src={photoUrl(g, 'face')}
-                          alt=""
-                          className="avatar"
-                        />
-                      ) : (
-                        <span className="avatar avatar-fallback">
-                          {g.name.charAt(0)}
-                        </span>
+              {guests.map(g => {
+                const face = photoUrl(g, 'face');
+                const hasFaceImage =
+                  !!face && !face.startsWith('data:application/pdf');
+
+                return (
+                  <tr key={g.id}>
+                    <td>
+                      <Link to={`/guests/${g.id}`} className="guest-link">
+                        {hasFaceImage ? (
+                          <img src={face} alt="" className="avatar" />
+                        ) : (
+                          <span className="avatar avatar-fallback">
+                            {g.name.charAt(0)}
+                          </span>
+                        )}
+                        <span>{g.name}</span>
+                      </Link>
+                    </td>
+                    <td>
+                      <span className="room-chip">{g.room_no}</span>
+                    </td>
+                    <td>{g.no_of_persons}</td>
+                    <td>{formatDateTime(g.checkin_at)}</td>
+                    <td>{formatDateTime(g.checkout_at)}</td>
+                    <td>
+                      {duration(
+                        g.checkin_at,
+                        g.checkout_at || new Date().toISOString(),
                       )}
-                      <span>{g.name}</span>
-                    </Link>
-                  </td>
-                  <td>
-                    <span className="room-chip">{g.room_no}</span>
-                  </td>
-                  <td>{g.no_of_persons}</td>
-                  <td>{formatDateTime(g.checkin_at)}</td>
-                  <td>{formatDateTime(g.checkout_at)}</td>
-                  <td>
-                    {duration(
-                      g.checkin_at,
-                      g.checkout_at || new Date().toISOString(),
-                    )}
-                  </td>
-                  <td>{paiseToINRShort(g.bill_total)}</td>
-                  <td>{paiseToINRShort(g.rent_paid)}</td>
-                  <td>
-                    <StatusBadge status={g.status} />
-                  </td>
-                  <td>
-                    <BillDue guest={g} />
-                  </td>
-                  <td>
-                    <Link
-                      to={`/guests/${g.id}`}
-                      className="btn btn-ghost btn-sm"
-                    >
-                      View
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>{paiseToINRShort(g.bill_total)}</td>
+                    <td>{paiseToINRShort(g.rent_paid)}</td>
+                    <td>
+                      <StatusBadge status={g.status} />
+                    </td>
+                    <td>
+                      <BillDue guest={g} />
+                    </td>
+                    <td>
+                      <Link
+                        to={`/guests/${g.id}`}
+                        className="btn btn-ghost btn-sm"
+                      >
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
