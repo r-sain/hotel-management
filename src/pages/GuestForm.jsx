@@ -10,6 +10,7 @@ import BillBreakdown, {
 
 const emptyForm = () => ({
   name: '',
+  phone: '',
   room_no: '',
   no_of_persons: '1',
   checkin_at: nowLocal(),
@@ -51,6 +52,7 @@ export default function GuestForm() {
           const gstRate = Number(g.gst_rate) || 0;
           setForm({
             name: g.name,
+            phone: g.phone || '',
             room_no: g.room_no,
             no_of_persons: String(g.no_of_persons),
             checkin_at: g.checkin_at,
@@ -124,6 +126,7 @@ export default function GuestForm() {
       const enteredAmount = rupeesToPaise(form.last_bill_amount) ?? 0;
       const body = {
         name: form.name.trim(),
+        phone: form.phone.trim() || null,
         room_no: form.room_no.trim(),
         no_of_persons: Number(form.no_of_persons),
         checkin_at: form.checkin_at,
@@ -177,6 +180,17 @@ export default function GuestForm() {
                 onChange={set('name')}
                 placeholder="Guest name"
                 required
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">Phone number</span>
+              <input
+                className="input"
+                type="tel"
+                autoComplete="tel"
+                value={form.phone}
+                onChange={set('phone')}
+                placeholder="e.g. +91 98765 43210"
               />
             </label>
             <label className="field">
@@ -324,7 +338,6 @@ export default function GuestForm() {
                 </label>
               </div>
             </div>
-
           </div>
 
           <div className="breakdown-box">
@@ -351,7 +364,7 @@ export default function GuestForm() {
                 className="input"
                 value={form.bill_due_note}
                 onChange={set('bill_due_note')}
-                placeholder="e.g. part payment promised on Saturday"
+                placeholder="e.g. part payment, advance paid, etc."
               />
             </label>
           </div>

@@ -122,6 +122,7 @@ function parseGuest(body) {
 
   return {
     name,
+    phone: body.phone ? String(body.phone).trim() : null,
     room_no,
     no_of_persons,
     checkin_at,

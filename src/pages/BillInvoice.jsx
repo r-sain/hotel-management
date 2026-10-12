@@ -291,7 +291,7 @@ export default function BillInvoice() {
                   className="input"
                   value={form.bill_due_note}
                   onChange={set('bill_due_note')}
-                  placeholder="e.g. part payment promised on Saturday"
+                  placeholder="e.g. part payment, advance paid, etc."
                 />
               </label>
             </div>
@@ -337,6 +337,9 @@ export default function BillInvoice() {
               <strong>{guest.name}</strong>
               <div className="invoice-party-meta">
                 <span>Room {guest.room_no}</span>
+                {guest.phone && (
+                  <a href={`tel:${guest.phone}`}>{guest.phone}</a>
+                )}
                 <span>·</span>
                 <span>
                   {guest.no_of_persons}{' '}

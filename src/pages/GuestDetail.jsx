@@ -136,6 +136,14 @@ export default function GuestDetail() {
           </div>
 
           <dl className="detail-facts">
+            <dt>Phone</dt>
+            <dd>
+              {guest.phone ? (
+                <a href={`tel:${guest.phone}`}>{guest.phone}</a>
+              ) : (
+                '—'
+              )}
+            </dd>
             <dt>Persons</dt>
             <dd>{guest.no_of_persons}</dd>
             <dt>Check-in</dt>
