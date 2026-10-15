@@ -34,6 +34,21 @@ export function duration(a, b) {
   return `${mins}m`
 }
 
+// Hotel-style billing counts crossed calendar days, with at least one night.
+export function stayNights(checkinAt, checkoutAt) {
+  const start = calendarDay(checkinAt)
+  const end = calendarDay(checkoutAt || nowLocal())
+  if (start === null || end === null) return 0
+  return Math.max(1, end - start)
+}
+
+function calendarDay(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value || '')
+  if (!match) return null
+  const [, year, month, day] = match.map(Number)
+  return Date.UTC(year, month - 1, day) / 86400000
+}
+
 function parse(value) {
   // Treat "YYYY-MM-DDTHH:mm" as local time (no Z) so it renders as entered.
   const d = new Date(value)

@@ -614,6 +614,10 @@
   gap: 20px;
 }
 
+.photo-grid > .photo-field:only-child {
+  grid-column: 1 / -1;
+}
+
 .photo-field {
   display: flex;
   flex-direction: column;

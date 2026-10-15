@@ -78,8 +78,8 @@ export default function GuestDetail() {
       </div>
     );
 
-  const face = photoUrl(guest, 'face');
-  const idPhoto = photoUrl(guest, 'id');
+  const guestDocument =
+    photoUrl(guest, 'face') || photoUrl(guest, 'id');
 
   return (
     <div className="page page-narrow">
@@ -144,8 +144,18 @@ export default function GuestDetail() {
                 '—'
               )}
             </dd>
+            <dt>Father / guardian</dt>
+            <dd>{guest.guardian_name || '—'}</dd>
+            <dt>Address</dt>
+            <dd>{guest.address || '—'}</dd>
             <dt>Persons</dt>
             <dd>{guest.no_of_persons}</dd>
+            {guest.rate_per_night > 0 && (
+              <>
+                <dt>Rate / night</dt>
+                <dd>{paiseToINR(guest.rate_per_night)}</dd>
+              </>
+            )}
             <dt>Check-in</dt>
             <dd>{formatDateTime(guest.checkin_at)}</dd>
             <dt>Check-out</dt>
@@ -161,10 +171,11 @@ export default function GuestDetail() {
 
           <div className="detail-photos">
             <figure>
-              {face ? (
-                face.startsWith('data:application/pdf') ? (
+              {guestDocument ? (
+                guestDocument.startsWith('data:application/pdf') ||
+                guestDocument.toLowerCase().endsWith('.pdf') ? (
                   <a
-                    href={face}
+                    href={guestDocument}
                     target="_blank"
                     rel="noreferrer"
                     className="detail-photo detail-photo-file"
@@ -172,31 +183,16 @@ export default function GuestDetail() {
                     Open PDF
                   </a>
                 ) : (
-                  <img src={face} alt="Customer" className="detail-photo" />
+                  <img
+                    src={guestDocument}
+                    alt="Guest photo"
+                    className="detail-photo"
+                  />
                 )
               ) : (
                 <div className="detail-photo detail-photo-empty">No PDF</div>
               )}
-              <figcaption>Customer photo</figcaption>
-            </figure>
-            <figure>
-              {idPhoto ? (
-                idPhoto.startsWith('data:application/pdf') ? (
-                  <a
-                    href={idPhoto}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="detail-photo detail-photo-file"
-                  >
-                    Open PDF
-                  </a>
-                ) : (
-                  <img src={idPhoto} alt="ID proof" className="detail-photo" />
-                )
-              ) : (
-                <div className="detail-photo detail-photo-empty">No PDF</div>
-              )}
-              <figcaption>ID proof document</figcaption>
+              <figcaption>Guest photo and ID document</figcaption>
             </figure>
           </div>
         </div>

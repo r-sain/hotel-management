@@ -37,8 +37,15 @@ CREATE TABLE IF NOT EXISTS guests (
 `);
 
 const guestColumns = db.pragma('table_info(guests)');
-if (!guestColumns.some(column => column.name === 'phone')) {
-  db.exec('ALTER TABLE guests ADD COLUMN phone TEXT');
+for (const [name, definition] of [
+  ['phone', 'TEXT'],
+  ['guardian_name', 'TEXT'],
+  ['address', 'TEXT'],
+  ['rate_per_night', 'INTEGER NOT NULL DEFAULT 0'],
+]) {
+  if (!guestColumns.some(column => column.name === name)) {
+    db.exec(`ALTER TABLE guests ADD COLUMN ${name} ${definition}`);
+  }
 }
 
 // ---------- Seed 5 dummy guests on first run ----------

@@ -97,6 +97,7 @@ function toPaise(value, field, { allowNull = false } = {}) {
 
 function parseGuest(body) {
   const name = String(body.name || '').trim();
+  const phone = body.phone ? String(body.phone).trim() : null;
   const room_no = String(body.room_no || '').trim();
   const no_of_persons = Number(body.no_of_persons);
   const checkin_at = String(body.checkin_at || '').trim();
@@ -105,6 +106,9 @@ function parseGuest(body) {
     String(body.bill_status || 'due').toLowerCase() === 'paid' ? 'paid' : 'due';
 
   if (!name) throw apiError('Name is required');
+  if (phone && !/^\d{10}$/.test(phone)) {
+    throw apiError('Phone number must be exactly 10 digits without a country code');
+  }
   if (!room_no) throw apiError('Room no. is required');
   if (
     !Number.isInteger(no_of_persons) ||
@@ -122,13 +126,20 @@ function parseGuest(body) {
 
   return {
     name,
-    phone: body.phone ? String(body.phone).trim() : null,
+    phone,
+    guardian_name: body.guardian_name
+      ? String(body.guardian_name).trim() || null
+      : null,
+    address: body.address ? String(body.address).trim() || null : null,
     room_no,
     no_of_persons,
     checkin_at,
     checkout_at: body.checkout_at || null,
     rent_paid: toPaise(body.rent_paid, 'Bill paid'),
     last_bill_amount: toPaise(body.last_bill_amount, 'Bill amount'),
+    rate_per_night: toPaise(body.rate_per_night, 'Rate per night', {
+      allowNull: true,
+    }) ?? 0,
     gst_included: body.gst_included ? 1 : 0,
     gst_rate,
     bill_status,
@@ -274,12 +285,9 @@ export const api = {
       throw apiError('Photo kind must be "face" or "id"');
     if (
       typeof dataUrl !== 'string' ||
-      !(
-        /^data:image\/(jpeg|jpg|png);base64,/.test(dataUrl) ||
-        /^data:application\/pdf;base64,/.test(dataUrl)
-      )
+      !/^data:application\/pdf;base64,/.test(dataUrl)
     ) {
-      throw apiError('Expected an image or PDF data URL in "dataUrl"');
+      throw apiError('Expected a PDF data URL in "dataUrl"');
     }
     const guests = readGuests();
     const guest = findGuest(guests, id);

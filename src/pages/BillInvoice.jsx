@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, photoUrl } from '../lib/api.js';
 import { paiseToINR, paiseToRupeeString, rupeesToPaise } from '../lib/money.js';
-import { formatDateTime, duration, nowLocal } from '../lib/datetime.js';
+import {
+  formatDateTime,
+  duration,
+  nowLocal,
+  stayNights,
+} from '../lib/datetime.js';
 import { computeBreakdown } from '../components/BillBreakdown.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 
@@ -17,6 +22,7 @@ export default function BillInvoice() {
   // Editable bill fields (kept as rupee strings, like GuestForm).
   const [form, setForm] = useState({
     rent_paid: '',
+    rate_per_night: '',
     last_bill_amount: '',
     gst_included: true,
     gst_rate: '5',
@@ -35,6 +41,7 @@ export default function BillInvoice() {
         const gstRate = Number(g.gst_rate) || 0;
         setForm({
           rent_paid: paiseToRupeeString(g.rent_paid),
+          rate_per_night: paiseToRupeeString(g.rate_per_night),
           last_bill_amount: paiseToRupeeString(g.last_bill_amount),
           gst_included: Boolean(g.gst_included),
           gst_rate: String(gstRate || 5),
@@ -79,7 +86,19 @@ export default function BillInvoice() {
     });
   }, [form]);
 
+  const nights = stayNights(guest?.checkin_at, guest?.checkout_at);
   const set = key => e => setForm(f => ({ ...f, [key]: e.target.value }));
+  const setNightlyRate = e => {
+    const value = e.target.value;
+    const rate = rupeesToPaise(value);
+    setForm(f => ({
+      ...f,
+      rate_per_night: value,
+      ...(rate === null
+        ? {}
+        : { last_bill_amount: paiseToRupeeString(rate * nights) }),
+    }));
+  };
 
   const save = async e => {
     e.preventDefault();
@@ -99,6 +118,10 @@ export default function BillInvoice() {
         checkin_at: guest.checkin_at,
         checkout_at: guest.checkout_at,
         rent_paid: breakdown.paid / 100,
+        rate_per_night:
+          rupeesToPaise(form.rate_per_night) === null
+            ? null
+            : rupeesToPaise(form.rate_per_night) / 100,
         last_bill_amount: enteredAmount / 100,
         gst_included: form.gst_included,
         gst_rate: form.gst_included ? 5 : 0,
@@ -138,7 +161,7 @@ export default function BillInvoice() {
       </div>
     );
 
-  const face = photoUrl(guest, 'face');
+  const face = photoUrl(guest, 'face') || photoUrl(guest, 'id');
   const printDate = formatDateTime(nowLocal());
 
   return (
@@ -190,6 +213,24 @@ export default function BillInvoice() {
             <h2>Bill &amp; GST</h2>
             <div className="form-grid">
               <label className="field">
+                <span className="field-label">Rate per night (₹)</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.rate_per_night}
+                  onChange={setNightlyRate}
+                  onWheel={e => e.target.blur()}
+                  placeholder="e.g. 500"
+                />
+                <span className="muted small">
+                  {nights} {nights === 1 ? 'night' : 'nights'}
+                  {rupeesToPaise(form.rate_per_night) !== null &&
+                    ` × ${paiseToINR(rupeesToPaise(form.rate_per_night))} = ${paiseToINR(rupeesToPaise(form.rate_per_night) * nights)} before GST`}
+                </span>
+              </label>
+              <label className="field">
                 <span className="field-label">Bill amount (₹)</span>
                 <input
                   className="input"
@@ -214,6 +255,15 @@ export default function BillInvoice() {
                   onWheel={e => e.target.blur()}
                   placeholder="Enter due amount"
                   disabled={form.bill_status !== 'due'}
+                />
+              </label>
+              <label className="field">
+                <span className="field-label">Note</span>
+                <input
+                  className="input"
+                  value={form.bill_due_note}
+                  onChange={set('bill_due_note')}
+                  placeholder="e.g. part payment, advance paid, etc."
                 />
               </label>
               <div className="field">
@@ -285,15 +335,6 @@ export default function BillInvoice() {
                 </div>
               </div>
 
-              <label className="field field-span-2">
-                <span className="field-label">Note</span>
-                <input
-                  className="input"
-                  value={form.bill_due_note}
-                  onChange={set('bill_due_note')}
-                  placeholder="e.g. part payment, advance paid, etc."
-                />
-              </label>
             </div>
           </section>
 
@@ -365,6 +406,18 @@ export default function BillInvoice() {
                   ) || '—'}
                 </dd>
               </div>
+              <div>
+                <dt>Nights</dt>
+                <dd>{nights}</dd>
+              </div>
+              {rupeesToPaise(form.rate_per_night) !== null && (
+                <div>
+                  <dt>Rate / night</dt>
+                  <dd>
+                    {paiseToINR(rupeesToPaise(form.rate_per_night))}
+                  </dd>
+                </div>
+              )}
             </dl>
           </div>
 
@@ -376,12 +429,12 @@ export default function BillInvoice() {
                 rel="noreferrer"
                 className="invoice-photo invoice-photo-file"
               >
-                Open customer document
+                Open guest photo and ID document
               </a>
             ) : (
               <div className="invoice-photo">
                 <img src={face} alt={`Customer photo of ${guest.name}`} />
-                <span>Customer</span>
+                <span>Guest</span>
               </div>
             ))}
 

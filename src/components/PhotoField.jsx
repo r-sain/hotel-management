@@ -5,7 +5,6 @@ import { useRef } from 'react';
 // currently stored file, shown while `value` is empty.
 export default function PhotoField({
   label,
-  allowCamera = false,
   allowUpload = true,
   value = null,
   savedUrl = null,
@@ -13,7 +12,9 @@ export default function PhotoField({
 }) {
   const fileRef = useRef(null);
   const preview = value || savedUrl;
-  const isPdf = preview?.startsWith('data:application/pdf');
+  const isPdf =
+    preview?.startsWith('data:application/pdf') ||
+    preview?.toLowerCase().endsWith('.pdf');
 
   const onFilePicked = e => {
     const file = e.target.files && e.target.files[0];

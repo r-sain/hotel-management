@@ -6,7 +6,10 @@ import { db, rootDir } from '../db.js';
 const router = Router();
 const uploadsDir = path.join(rootDir, 'uploads');
 
-const PHOTO_KINDS = { face: 'face.jpg', id: 'id.jpg' };
+const PHOTO_KINDS = {
+  face: { file: 'guest-document.pdf', column: 'face_photo' },
+  id: { file: 'id.pdf', column: 'id_photo' },
+};
 
 function badRequest(res, msg) {
   return res.status(400).json({ error: msg });
@@ -78,7 +81,18 @@ function parseGuestBody(body, { partial = false } = {}) {
     else out.room_no = room;
   }
   if (!partial || body.phone !== undefined) {
-    out.phone = String(body.phone || '').trim() || null;
+    const phone = String(body.phone || '').trim();
+    if (phone && !/^\d{10}$/.test(phone)) {
+      errors.push('Phone number must be exactly 10 digits without a country code');
+    } else {
+      out.phone = phone || null;
+    }
+  }
+  if (!partial || body.guardian_name !== undefined) {
+    out.guardian_name = String(body.guardian_name || '').trim() || null;
+  }
+  if (!partial || body.address !== undefined) {
+    out.address = String(body.address || '').trim() || null;
   }
   if (!partial || body.no_of_persons !== undefined) {
     const persons = Number(body.no_of_persons);
@@ -96,7 +110,7 @@ function parseGuestBody(body, { partial = false } = {}) {
     const co = String(body.checkout_at || '').trim();
     out.checkout_at = co || null;
   }
-  for (const f of ['rent_paid', 'last_bill_amount']) {
+  for (const f of ['rent_paid', 'rate_per_night', 'last_bill_amount']) {
     if (body[f] !== undefined || !partial) {
       const p = toPaise(body[f], f, { required: false, allowNull: true });
       if (p && p.error) errors.push(p.error);
@@ -167,24 +181,27 @@ router.post('/', (req, res) => {
     .prepare(
       `
       INSERT INTO guests
-        (name, phone, room_no, no_of_persons, checkin_at, checkout_at, status,
-         rent_paid, last_bill_amount, gst_included, gst_rate,
+        (name, phone, guardian_name, address, room_no, no_of_persons, checkin_at, checkout_at, status,
+         rent_paid, rate_per_night, last_bill_amount, gst_included, gst_rate,
          bill_due_manual, bill_due_note)
       VALUES
-        (@name, @phone, @room_no, @no_of_persons, @checkin_at, @checkout_at, @status,
-         @rent_paid, @last_bill_amount, @gst_included, @gst_rate,
+        (@name, @phone, @guardian_name, @address, @room_no, @no_of_persons, @checkin_at, @checkout_at, @status,
+         @rent_paid, @rate_per_night, @last_bill_amount, @gst_included, @gst_rate,
          @bill_due_manual, @bill_due_note)
     `,
     )
     .run({
       name: out.name,
       phone: out.phone ?? null,
+      guardian_name: out.guardian_name ?? null,
+      address: out.address ?? null,
       room_no: out.room_no,
       no_of_persons: out.no_of_persons,
       checkin_at: out.checkin_at,
       checkout_at: out.checkout_at || null,
       status,
       rent_paid: out.rent_paid ?? 0,
+      rate_per_night: out.rate_per_night ?? 0,
       last_bill_amount: out.last_bill_amount ?? 0,
       gst_included: out.gst_included ?? 1,
       gst_rate: out.gst_rate ?? 5,
@@ -210,10 +227,12 @@ router.put('/:id', (req, res) => {
   db.prepare(
     `
     UPDATE guests SET
-      name = @name, phone = @phone, room_no = @room_no,
+      name = @name, phone = @phone, guardian_name = @guardian_name,
+      address = @address, room_no = @room_no,
       no_of_persons = @no_of_persons,
       checkin_at = @checkin_at, checkout_at = @checkout_at, status = @status,
-      rent_paid = @rent_paid, last_bill_amount = @last_bill_amount,
+      rent_paid = @rent_paid, rate_per_night = @rate_per_night,
+      last_bill_amount = @last_bill_amount,
       gst_included = @gst_included, gst_rate = @gst_rate,
       bill_due_manual = @bill_due_manual, bill_due_note = @bill_due_note,
       updated_at = datetime('now')
@@ -261,30 +280,29 @@ router.delete('/:id', (req, res) => {
   res.status(204).end();
 });
 
-// POST /api/guests/:id/photos/:kind   body: { dataUrl: "data:image/jpeg;base64,..." }
+// POST /api/guests/:id/photos/:kind   body: { dataUrl: "data:application/pdf;base64,..." }
 router.post('/:id/photos/:kind', (req, res) => {
   const g = getGuest(req.params.id);
   if (!g) return res.status(404).json({ error: 'Guest not found' });
   const kind = req.params.kind;
-  const file = PHOTO_KINDS[kind];
-  if (!file) return badRequest(res, 'Photo kind must be "face" or "id"');
+  const photoKind = PHOTO_KINDS[kind];
+  if (!photoKind) return badRequest(res, 'Photo kind must be "face" or "id"');
   const dataUrl = req.body?.dataUrl;
   if (
     typeof dataUrl !== 'string' ||
-    !/^data:image\/(jpeg|jpg|png);base64,/.test(dataUrl)
+    !/^data:application\/pdf;base64,/.test(dataUrl)
   ) {
-    return badRequest(res, 'Expected a base64 JPEG/PNG data URL in "dataUrl"');
+    return badRequest(res, 'Expected a base64 PDF data URL in "dataUrl"');
   }
   const bytes = Buffer.from(dataUrl.split(',')[1], 'base64');
   if (bytes.length > 8 * 1024 * 1024)
-    return badRequest(res, 'Photo is larger than 8 MB');
+    return badRequest(res, 'PDF is larger than 8 MB');
   const dir = path.join(uploadsDir, String(g.id));
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, file), bytes);
-  const col = kind === 'face' ? 'face_photo' : 'id_photo';
+  fs.writeFileSync(path.join(dir, photoKind.file), bytes);
   db.prepare(
-    `UPDATE guests SET ${col} = ?, updated_at = datetime('now') WHERE id = ?`,
-  ).run(`${g.id}/${file}`, g.id);
+    `UPDATE guests SET ${photoKind.column} = ?, updated_at = datetime('now') WHERE id = ?`,
+  ).run(`${g.id}/${photoKind.file}`, g.id);
   res.json(getGuest(g.id));
 });
 
