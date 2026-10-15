@@ -52,9 +52,7 @@ export default function BillBreakdown({ bill, showDue = true }) {
     <div className="breakdown">
       <div className="breakdown-title">
         Bill breakdown{' '}
-        {bill.gstIncluded
-          ? '(entered with GST)'
-          : '(entered without GST — GST added)'}
+        {bill.gstIncluded ? '(entered with GST)' : '(entered without GST)'}
       </div>
       <dl className="breakdown-grid">
         <dt>Base amount</dt>
