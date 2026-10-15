@@ -61,7 +61,7 @@ export default function Dashboard() {
   }, [guests]);
 
   return (
-    <div className="page">
+    <div className="page dashboard-page">
       <div className="page-head">
         <h1>Guest register</h1>
         <div className="page-head-actions">
@@ -133,7 +133,6 @@ export default function Dashboard() {
                 <th>Bill paid</th>
                 <th>Status</th>
                 <th>Due</th>
-                <th aria-label="actions" />
               </tr>
             </thead>
             <tbody>
@@ -175,14 +174,6 @@ export default function Dashboard() {
                     </td>
                     <td>
                       <BillDue guest={g} />
-                    </td>
-                    <td>
-                      <Link
-                        to={`/guests/${g.id}`}
-                        className="btn btn-ghost btn-sm"
-                      >
-                        View
-                      </Link>
                     </td>
                   </tr>
                 );

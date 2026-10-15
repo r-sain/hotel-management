@@ -1,4 +1,4 @@
-import { Link, Navigate, Route, Routes } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard.jsx';
 import GuestForm from './pages/GuestForm.jsx';
 import GuestDetail from './pages/GuestDetail.jsx';
@@ -6,8 +6,10 @@ import BillInvoice from './pages/BillInvoice.jsx';
 import './App.css';
 
 export default function App() {
+  const isDashboard = useLocation().pathname === '/';
+
   return (
-    <div className="app">
+    <div className={`app${isDashboard ? ' app-dashboard' : ''}`}>
       <header className="app-header">
         <Link
           to="/"
@@ -25,7 +27,7 @@ export default function App() {
           </span>
         </Link>
       </header>
-      <main className="app-main">
+      <main className={`app-main${isDashboard ? ' dashboard-main' : ''}`}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/guests/new" element={<GuestForm />} />

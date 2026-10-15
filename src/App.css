@@ -5,10 +5,16 @@
   flex-direction: column;
 }
 
+.app-dashboard {
+  height: 100svh;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .app-header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: 12px 24px;
+  padding: 8px 24px;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -33,7 +39,7 @@
 
 .brand-logo {
   display: block;
-  height: 52px;
+  height: 40px;
   width: auto;
 }
 
@@ -41,7 +47,6 @@
   display: flex;
   flex-direction: column;
   line-height: 1.05;
-  padding-top: 5px;
 }
 
 .brand-text {
@@ -69,12 +74,28 @@
   width: 100%;
   max-width: 1240px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 16px 24px 24px;
+}
+
+.dashboard-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 10px;
+  padding-bottom: 12px;
 }
 
 .page {
   animation: fade 0.15s ease;
   width: 100%;
+}
+
+.dashboard-page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .page-narrow {
@@ -98,7 +119,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
   flex-wrap: wrap;
 }
 
@@ -180,14 +201,14 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 14px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .stat-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px 18px;
+  padding: 12px 16px;
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
@@ -209,7 +230,51 @@
 .filter-tabs {
   display: flex;
   gap: 6px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+}
+
+.dashboard-page .page-head {
+  margin-bottom: 8px;
+}
+
+.dashboard-page h1 {
+  font-size: 21px;
+}
+
+.dashboard-page .btn {
+  padding: 6px 11px;
+  font-size: 13px;
+}
+
+.dashboard-page .search {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.dashboard-page .stat-cards {
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.dashboard-page .stat-card {
+  padding: 8px 12px;
+}
+
+.dashboard-page .stat-value {
+  font-size: 22px;
+}
+
+.dashboard-page .stat-label {
+  font-size: 12px;
+}
+
+.dashboard-page .filter-tabs {
+  margin-bottom: 8px;
+}
+
+.dashboard-page .tab {
+  padding: 4px 11px;
+  font-size: 12.5px;
 }
 
 .tab {
@@ -236,7 +301,14 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  overflow-x: auto;
+  max-height: 74vh;
+  overflow: auto;
+}
+
+.dashboard-page .table-wrap {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
 }
 
 .guest-table {
@@ -247,6 +319,9 @@
 }
 
 .guest-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   text-align: left;
   font-size: 12px;
   text-transform: uppercase;
@@ -1168,8 +1243,30 @@
     padding: 16px;
   }
 
+  .app-main.dashboard-main {
+    padding: 8px 16px 12px;
+  }
+
   .stat-cards {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-page .stat-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .dashboard-page .stat-card {
+    padding: 7px 8px;
+  }
+
+  .dashboard-page .stat-value {
+    font-size: 18px;
+    overflow-wrap: anywhere;
+  }
+
+  .dashboard-page .stat-label {
+    font-size: 11px;
   }
 
   .form-grid,

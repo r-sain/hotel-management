@@ -153,15 +153,16 @@ function parseGuest(body) {
 }
 
 function assertRoomAvailable(guests, roomNo, exceptId = 0) {
+  const normalizedRoomNo = roomNo.trim().toUpperCase();
   const occupied = guests.find(
     guest =>
-      guest.room_no.toLowerCase() === roomNo.toLowerCase() &&
+      guest.room_no.trim().toUpperCase() === normalizedRoomNo &&
       guest.status === 'checked-in' &&
       guest.id !== exceptId,
   );
   if (occupied) {
     throw apiError(
-      `Room ${roomNo} is already occupied by ${occupied.name}. Choose another room.`,
+      `Room ${roomNo} is occupied.`,
       409,
     );
   }

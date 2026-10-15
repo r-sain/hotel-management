@@ -58,11 +58,11 @@ function getGuest(id) {
 function checkRoomFree(roomNo, exceptId = 0) {
   const occ = db
     .prepare(
-      "SELECT name FROM guests WHERE room_no = ? AND status = 'checked-in' AND id != ?",
+      "SELECT 1 FROM guests WHERE upper(trim(room_no)) = upper(trim(?)) AND status = 'checked-in' AND id != ?",
     )
     .get(roomNo, exceptId);
   return occ
-    ? `Room ${roomNo} is already occupied by ${occ.name}. Choose another room.`
+    ? `Room ${roomNo} is occupied.`
     : null;
 }
 
@@ -174,9 +174,11 @@ router.get('/:id', (req, res) => {
 router.post('/', (req, res) => {
   const { out, errors } = parseGuestBody(req.body || {});
   if (errors.length) return badRequest(res, errors.join(' '));
-  const roomErr = checkRoomFree(out.room_no);
-  if (roomErr) return res.status(409).json({ error: roomErr });
   const status = out.checkout_at ? 'checked-out' : 'checked-in';
+  if (status === 'checked-in') {
+    const roomErr = checkRoomFree(out.room_no);
+    if (roomErr) return res.status(409).json({ error: roomErr });
+  }
   const info = db
     .prepare(
       `
@@ -219,11 +221,12 @@ router.put('/:id', (req, res) => {
   if (!existing) return res.status(404).json({ error: 'Guest not found' });
   const { out, errors } = parseGuestBody(req.body || {});
   if (errors.length) return badRequest(res, errors.join(' '));
-  const room = out.room_no ?? existing.room_no;
-  const roomErr = checkRoomFree(room, existing.id);
-  if (roomErr) return res.status(409).json({ error: roomErr });
   const next = { ...existing, ...out };
   const status = next.checkout_at ? 'checked-out' : 'checked-in';
+  if (status === 'checked-in') {
+    const roomErr = checkRoomFree(next.room_no, existing.id);
+    if (roomErr) return res.status(409).json({ error: roomErr });
+  }
   db.prepare(
     `
     UPDATE guests SET

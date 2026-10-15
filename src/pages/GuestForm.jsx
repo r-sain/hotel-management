@@ -124,7 +124,7 @@ export default function GuestForm() {
     const room = form.room_no.trim().toUpperCase();
     if (!room) return null;
     return occupiedRooms.find(
-      r => r.room.toUpperCase() === room && r.id !== Number(id),
+      r => r.room.trim().toUpperCase() === room && r.id !== Number(id),
     );
   }, [form.room_no, occupiedRooms, id]);
 
@@ -158,6 +158,10 @@ export default function GuestForm() {
 
   const save = async e => {
     e.preventDefault();
+    if (roomConflict && !form.checkout_at) {
+      window.alert(`⚠ Room ${form.room_no.trim()} is occupied`);
+      return;
+    }
     setError('');
     setSaving(true);
     try {
@@ -194,6 +198,7 @@ export default function GuestForm() {
       navigate(`/guests/${guest.id}`);
     } catch (err) {
       setError(err.message);
+      if (err.status === 409) window.alert(err.message);
     } finally {
       setSaving(false);
     }
@@ -272,11 +277,12 @@ export default function GuestForm() {
                 value={form.room_no}
                 onChange={set('room_no')}
                 placeholder="e.g. 104"
+                aria-invalid={Boolean(roomConflict && !form.checkout_at)}
                 required
               />
-              {roomConflict && (
+              {roomConflict && !form.checkout_at && (
                 <span className="field-warn">
-                  ⚠ Room {roomConflict.room} is occupied by {roomConflict.name}
+                  ⚠ Room {roomConflict.room} is occupied
                 </span>
               )}
             </label>
